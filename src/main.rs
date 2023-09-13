@@ -1,11 +1,12 @@
 use std::{net::{TcpListener, TcpStream, SocketAddr}, io::{Read, Write}, ops::Index, hash::Hash};
 use std::{str, env, fs, os};
 use std::collections::HashMap;
+use serde_json::Value;
 
 mod tools;
 
 
-fn startListener(configData: HashMap<String, String>) {
+fn startListener(configData: HashMap<String, Value>) {
     let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
     while true {
         match listener.accept() {
@@ -16,58 +17,21 @@ fn startListener(configData: HashMap<String, String>) {
 }
 
 
-fn handleClient(mut connection: TcpStream, addr: SocketAddr, configData: &HashMap<String, String>) {
+fn handleClient(mut connection: TcpStream, addr: SocketAddr, configData: &HashMap<String, Value>) {
     // println!("New client connected: {addr:?}"); 
     let mut buf = [0; 1024];
     connection.read(&mut buf);
     let (requestDetails, parameters) = getRequestDetails(&buf);
     if requestDetails.contains_key("GET") {
-        returnWebpage(requestDetails, &mut connection, addr);
+        tools::returnWebpage(requestDetails, &mut connection);
     } else if requestDetails.contains_key("POST") {
-        println!("{:?}", parameters);
+        tools::handlePostRequest(requestDetails, parameters, configData, &mut connection)
+    
     }
 }
 
 
-fn getContent(path: &String) -> Vec<u8> {
-    let possibleContents = getPossibleContents();
-    println!("{:?}", possibleContents);
-    let path = if path == "/" {"index.html".to_string()} else {path.clone().to_string()[1..].to_string()};
-    if !possibleContents.contains(&path) {
-        return "<h1>404 - Page not found<h1>".as_bytes().to_vec();
-    }
-    let content = fs::read("content/".to_string()+(&path)).expect(&format!("Could not read file for path {path}")[..]);
-    return content
-}
 
-
-fn getPossibleContents() -> Vec<String> {
-    let mut possibleContents = fs::read_dir("content/").unwrap().filter_map(|x| x.ok()).map(|e| e.path().to_string_lossy().into_owned()).collect::<Vec<String>>();
-    return possibleContents.iter().map(|x| x.replace("content/","")).collect()
-}
-
-
-fn getPage(requestDetails: HashMap<String, String>) -> String{
-    let mut page = String::new();
-    match requestDetails.get("GET") {
-        Some(pageSome) => {page = pageSome.clone();},
-        None => return String::new(),
-    }
-    page.split(" ").collect::<Vec<&str>>()[0].to_string()
-}
-
-
-fn returnWebpage(requestDetails: HashMap<String, String>, connection: &mut TcpStream, addr: SocketAddr) {
-    let page = getPage(requestDetails);
-    let statusLine = "HTTP/1.1 200 OK";
-    let mut contents = getContent(&page);
-    let contentsLength = contents.len();
-    println!("Client {addr} requested: {page}");
-    let msg = format!("{statusLine}\r\nContent-Length: {contentsLength}\r\n\r\n");
-    let mut msg = msg.as_bytes().to_vec();
-    msg.append(&mut contents);
-    connection.write_all(&msg[..]).unwrap();
-}
 
 
 fn splitUpRequestDetail(detail: String, separator: &str) -> (String, String) {

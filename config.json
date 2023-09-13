@@ -1,3 +1,10 @@
 {
-  "serverName": "Testtt"
+  "printConfig": true,
+  "loginPages": {
+    "/logina.html": {
+      "username": "username",
+      "password": "password",
+      "redirectValid": "/home.html"
+    }
+  }
 }

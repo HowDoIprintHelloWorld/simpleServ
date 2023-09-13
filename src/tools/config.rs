@@ -1,29 +1,39 @@
 use std::collections::HashMap;
-use std::{fs, env, process, str};
+use std::{fs, env, process, str, any};
 use serde_json;
+use serde_json::Value;
 
 
 fn getConfigFileContents() -> String {
-    let mut configFileContents = String::new();
     let args = env::args().collect::<Vec<String>>();
     let fileLocation = match args.get(1) {
         Some(arg) => {arg.to_string()},
         None => {"".to_string()},
     };
-    println!("{}", fileLocation);
     let file = fs::read_to_string(fileLocation);
-    let fileContentUtf8 = match file {
+    let configFileContents: String = match file {
       Ok(fileContent) => {fileContent},
       Err(e) => {panic!("{}", format!("Error reading config file: {:?}", e))}
     };
-    let fileContent = serde_json::from_str(&fileContentUtf8[..]);
-    println!("Content {:?}", fileContent);
     return configFileContents;
 }
 
+fn configFileToJSON(configFileContents: String) -> HashMap<String, Value> {
+    let fileContent: &str = &configFileContents[..];
+    let fileContent = match serde_json::from_str::<HashMap<String, Value>>(fileContent) {
+        Ok(fileContent) => {fileContent},
+        Err(e) => {panic!("Error in config file: {}", e);}
+    };
+    
+    return fileContent;
+}
 
-pub fn getConfigData() -> HashMap<String, String> {
-    let mut configData = HashMap::new();
-    let configFileContents = getConfigFileContents();
+
+pub fn getConfigData() -> HashMap<String, Value> {
+    let configData = configFileToJSON(getConfigFileContents());
+    match configData.get("printConfig") {
+        Some(state) => {if state == true {println!("{:?}", configData)}},
+        None => {}
+    }
     return configData;
 }
